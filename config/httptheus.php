@@ -197,12 +197,17 @@ return [
     | scrape that reads them.
     |
     | auto    APCu when the extension is loaded and enabled, otherwise memory.
+    |         It never guesses at a Redis connection, so an application that
+    |         stores metrics in Redis must say so.
     | apcu    Per-host shared memory. The right answer under PHP-FPM. Not shared
     |         with CLI processes, so queue workers need redis.
     | apcng   APCu with a cached metadata index; faster with many series.
-    | redis   Shared across processes and hosts. The only option that works for
-    |         queue workers. Every instance then reports identical totals, so
+    | redis   Shared across processes and hosts. Works for queue workers.
+    |         Needs ext-redis. Every instance then reports identical totals, so
     |         scrape exactly one target or you will count them N times over.
+    | predis  The same, over the pure-PHP predis/predis client, for
+    |         applications that never installed ext-redis. Same sharing and
+    |         same single-target caveat.
     | memory  Discarded at the end of the request. Under PHP-FPM every scrape
     |         returns nothing at all. Useful in tests, under Octane, or in a
     |         single long-lived process that also serves the scrape.
@@ -214,9 +219,11 @@ return [
         'prefix' => env('HTTPTHEUS_STORAGE_PREFIX', 'httptheus'),
 
         /*
-         * There is no `database` key: the Prometheus client's Redis adapter has
-         * no such option, and offering one it would silently ignore is worse
-         * than not offering it.
+         * Shared by the `redis` and `predis` drivers.
+         *
+         * There is no `database` key: the Prometheus client's Redis adapters
+         * have no such option, and offering one they would silently ignore is
+         * worse than not offering it.
          */
         'redis' => [
             'host' => env('HTTPTHEUS_REDIS_HOST', '127.0.0.1'),

@@ -100,17 +100,22 @@ to outlive the request that incremented them.
 | Runtime | `HTTPTHEUS_STORAGE` | Why |
 |---|---|---|
 | PHP-FPM | `apcu` | Shared memory per host, survives between requests |
-| Queue workers | `redis` | APCu does not cross process boundaries, and a worker has no endpoint to scrape |
+| Queue workers | `redis`, or `predis` | APCu does not cross process boundaries, and a worker has no endpoint to scrape |
 | Octane, or one long-lived process | `memory` is fine | The process that records also serves the scrape |
 
-The default is `auto`: APCu when the extension is loaded and enabled, otherwise `memory`.
+`redis` needs `ext-redis`. If your application never installed it and already
+uses the pure-PHP client, `predis` is the same storage over `predis/predis` and
+needs no extension at all. Both read the same `storage.redis` settings.
+
+The default is `auto`: APCu when the extension is loaded and enabled, otherwise
+`memory`. It never guesses at a Redis connection, so if you want one, say so.
 
 **`memory` under PHP-FPM returns an empty scrape every time** — the request that served it
 never saw the increments. If `/httptheus/metrics` is blank, this is why. `php artisan about`
 reports the driver actually in use.
 
-With `redis`, every application instance reports the **same** totals. Scrape exactly one
-target, or you will count all of your traffic N times over.
+With `redis` or `predis`, every application instance reports the **same** totals. Scrape
+exactly one target, or you will count all of your traffic N times over.
 
 ## Exporting
 
@@ -204,7 +209,8 @@ documents every key. The ones worth knowing before you need them:
 
 ## Requirements
 
-PHP 8.2+, Laravel 12 or 13. `ext-apcu` or `ext-redis` for anything but Octane.
+PHP 8.2+, Laravel 12 or 13, Guzzle 7 or 8. For anything but Octane you also want a
+storage backend that outlives the request: `ext-apcu`, `ext-redis`, or `predis/predis`.
 
 ## Testing
 

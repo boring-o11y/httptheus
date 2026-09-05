@@ -59,10 +59,18 @@ jobs:
 
       - run: vendor/bin/phpunit --testsuite Httptheus
 
-  spatie:
+  integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    name: spatie/laravel-prometheus integration
+    name: integration (spatie, predis)
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 3s
+          --health-timeout 5s --health-retries 20
 
     # spatie/laravel-prometheus requires PHP 8.4, so it cannot be a require-dev
     # without making the 8.2 and 8.3 matrix cells unresolvable. The adoption
@@ -79,11 +87,13 @@ jobs:
       - name: Install dependencies
         run: |
           composer require "laravel/framework:13.*" "orchestra/testbench:11.*" --no-interaction --no-update
-          composer require --dev "spatie/laravel-prometheus:^1.6" --no-interaction --no-update
+          composer require --dev "spatie/laravel-prometheus:^1.6" "predis/predis:^2.3 || ^3.0" --no-interaction --no-update
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run the integration suite
+        env:
+          HTTPTHEUS_TEST_REDIS_HOST: 127.0.0.1
         run: |
           vendor/bin/phpunit --testsuite Integration --display-all-issues | tee result.txt
-          # A skip here would leave the headline feature untested and green.
+          # A skip here would leave the headline features untested and green.
           grep -q 'OK (' result.txt && ! grep -q 'skipped' result.txt

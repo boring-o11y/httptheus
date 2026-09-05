@@ -7,6 +7,7 @@ use Prometheus\Storage\Adapter;
 use Prometheus\Storage\APC;
 use Prometheus\Storage\APCng;
 use Prometheus\Storage\InMemory;
+use Prometheus\Storage\Predis;
 use Prometheus\Storage\Redis;
 
 class StorageFactory
@@ -20,6 +21,7 @@ class StorageFactory
             'apcu' => new APC($prefix),
             'apcng' => new APCng($prefix),
             'redis' => new Redis($this->redisOptions()),
+            'predis' => new Predis($this->predisParameters(), ['prefix' => $prefix . ':']),
             'memory' => new InMemory,
             default => throw new InvalidArgumentException("Unknown httptheus storage driver [{$driver}]."),
         };
@@ -56,6 +58,27 @@ class StorageFactory
             (array) config('httptheus.storage.redis', []),
             fn ($value) => $value !== null && $value !== '',
         );
+    }
+
+    /**
+     * The same connection settings as the `redis` driver, under the names
+     * Predis uses for them.
+     *
+     * @return array<string, mixed>
+     */
+    private function predisParameters(): array
+    {
+        $redis = (array) config('httptheus.storage.redis', []);
+
+        return array_filter([
+            'scheme' => 'tcp',
+            'host' => $redis['host'] ?? null,
+            'port' => $redis['port'] ?? null,
+            'password' => $redis['password'] ?? null,
+            'timeout' => $redis['timeout'] ?? null,
+            'read_write_timeout' => isset($redis['read_timeout']) ? (float) $redis['read_timeout'] : null,
+            'persistent' => $redis['persistent_connections'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
     }
 
     private function apcuAvailable(): bool

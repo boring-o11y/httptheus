@@ -38,12 +38,14 @@
     "require-dev": {
         "larastan/larastan": "^3.0",
         "orchestra/testbench": "^10.0 || ^11.0",
-        "phpunit/phpunit": "^11.0 || ^12.0"
+        "phpunit/phpunit": "^11.0 || ^12.0",
+        "predis/predis": "^3.0"
     },
     "suggest": {
         "spatie/laravel-prometheus": "Its CollectorRegistry is adopted automatically, so httptheus metrics are exported from its /prometheus route with no configuration. Requires PHP 8.4.",
         "ext-apcu": "Per-host metric storage that survives between PHP-FPM requests. Required for anything other than Octane or a single long-lived worker.",
-        "ext-redis": "Cross-process, cross-host metric storage. Required if you instrument queue workers."
+        "ext-redis": "Cross-process, cross-host metric storage. Required if you instrument queue workers.",
+        "predis/predis": "The same cross-process storage without a PHP extension, for applications already using predis."
     },
     "autoload": {
         "psr-4": {

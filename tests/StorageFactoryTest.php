@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Prometheus\CollectorRegistry;
 use Prometheus\Storage\APC;
 use Prometheus\Storage\InMemory;
+use Prometheus\Storage\Predis;
 
 class StorageFactoryTest extends TestCase
 {
@@ -52,6 +53,45 @@ class StorageFactoryTest extends TestCase
         config(['httptheus.storage.driver' => 'auto']);
 
         $this->assertSame('memory', $this->factory->driver());
+    }
+
+    #[Test]
+    public function it_builds_the_predis_adapter_without_a_php_extension(): void
+    {
+        if (! class_exists(\Predis\Client::class)) {
+            $this->markTestSkipped('predis/predis is not installed.');
+        }
+
+        config(['httptheus.storage.driver' => 'predis']);
+
+        // Constructing it does not connect, so this runs without a Redis.
+        $this->assertInstanceOf(Predis::class, $this->factory->make());
+    }
+
+    #[Test]
+    public function predis_translates_the_shared_connection_settings(): void
+    {
+        config(['httptheus.storage.redis' => [
+            'host' => 'redis',
+            'port' => 6379,
+            'password' => null,
+            'timeout' => 0.1,
+            'read_timeout' => '10',
+            'persistent_connections' => false,
+        ]]);
+
+        $parameters = (new \ReflectionMethod($this->factory, 'predisParameters'))->invoke($this->factory);
+
+        // Predis names two of these differently. An unset password is dropped
+        // rather than sent as null; a false stays, because it is a value.
+        $this->assertSame([
+            'scheme' => 'tcp',
+            'host' => 'redis',
+            'port' => 6379,
+            'timeout' => 0.1,
+            'read_write_timeout' => 10.0,
+            'persistent' => false,
+        ], $parameters);
     }
 
     #[Test]

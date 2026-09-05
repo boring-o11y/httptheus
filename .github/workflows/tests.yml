@@ -1,0 +1,89 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        laravel: ['12.*', '13.*']
+        # Guzzle 8 ships in current Laravel apps while 7 is still widely
+        # installed, and the recording seam is Guzzle's own on_stats hook — the
+        # one thing most likely to move between its majors.
+        guzzle: ['^7.0', '^8.0']
+        include:
+          # Testbench majors track Laravel majors and must be pinned together,
+          # otherwise Composer resolves the newest testbench and drags in a
+          # laravel/framework that conflicts with the pinned Laravel version.
+          - laravel: '12.*'
+            testbench: '10.*'
+          - laravel: '13.*'
+            testbench: '11.*'
+        exclude:
+          # Laravel 13 requires PHP 8.3.
+          - php: '8.2'
+            laravel: '13.*'
+          # Laravel 12 itself caps guzzle at ^7, so this pair is unresolvable
+          # rather than broken. Guzzle 8 is covered on Laravel 13.
+          - laravel: '12.*'
+            guzzle: '^8.0'
+
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / Guzzle ${{ matrix.guzzle }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json, apcu
+          # Without this the APCu storage tests skip themselves, and a broken
+          # adapter reaches users instead of the matrix.
+          ini-values: apc.enable_cli=1
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "guzzlehttp/guzzle:${{ matrix.guzzle }}" --no-interaction --no-update
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - run: vendor/bin/phpstan analyse --no-progress
+
+      - run: vendor/bin/phpunit --testsuite Httptheus
+
+  spatie:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    name: spatie/laravel-prometheus integration
+
+    # spatie/laravel-prometheus requires PHP 8.4, so it cannot be a require-dev
+    # without making the 8.2 and 8.3 matrix cells unresolvable. The adoption
+    # tests skip themselves everywhere else; this is where they run.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: json
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:13.*" "orchestra/testbench:11.*" --no-interaction --no-update
+          composer require --dev "spatie/laravel-prometheus:^1.6" --no-interaction --no-update
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run the integration suite
+        run: |
+          vendor/bin/phpunit --testsuite Integration --display-all-issues | tee result.txt
+          # A skip here would leave the headline feature untested and green.
+          grep -q 'OK (' result.txt && ! grep -q 'skipped' result.txt

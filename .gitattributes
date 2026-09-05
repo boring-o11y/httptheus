@@ -1,0 +1,17 @@
+# Keep the development harness out of the dist archive. Everything below is
+# needed to work on httptheus and nothing below is needed to run it, so it would
+# otherwise be downloaded into every application that installs the package.
+#
+# dashboards/ is deliberately NOT excluded: the service provider publishes it
+# through `vendor:publish --tag=httptheus-dashboard`.
+/.dockerignore      export-ignore
+/.gitattributes     export-ignore
+/.github/           export-ignore
+/.gitignore         export-ignore
+/docker/            export-ignore
+/Dockerfile         export-ignore
+/docker-compose.yml export-ignore
+/phpstan.neon.dist  export-ignore
+/phpunit.xml.dist   export-ignore
+/testbench.yaml     export-ignore
+/tests/             export-ignore

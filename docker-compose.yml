@@ -1,0 +1,109 @@
+services:
+  tests:
+    # Profiled so `--profile demo up` does not drag the test runner along.
+    # `docker compose run` enables a service's own profile automatically.
+    profiles: [test]
+    build:
+      context: .
+      args:
+        # The CI matrix covers 8.2/8.3/8.4; override locally with
+        # `PHP_VERSION=8.4 docker compose build tests`.
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer
+
+  # ---------------------------------------------------------------------------
+  # The demo profile. `docker compose --profile demo up` brings up an
+  # instrumented app, something for it to call, and the Prometheus and Grafana
+  # that the shipped dashboard is built against.
+  # ---------------------------------------------------------------------------
+
+  redis:
+    profiles: [demo]
+    image: redis:7-alpine
+    # Nothing here outlives the demo, and the traffic generator refills it in
+    # seconds. Persistence would only cost disk.
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  httpbin:
+    profiles: [demo]
+    image: mccutchen/go-httpbin:v2.15.0
+    # Real latency (/delay/n), real status codes (/status/500) and real bodies,
+    # so the dashboard shows the shape it would show against a live API rather
+    # than a wall of identical 200s.
+    environment:
+      PORT: '8080'
+
+  app: &demo_app
+    profiles: [demo]
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
+    command: ['vendor/bin/testbench', 'serve', '--host=0.0.0.0', '--port=8080']
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+    environment: &demo_env
+      COMPOSER_CACHE_DIR: /tmp/composer
+      # Redis, not APCu: the traffic generator is a separate process and APCu
+      # shared memory does not cross process boundaries, so the scrape served by
+      # `app` would report nothing the generator did.
+      HTTPTHEUS_STORAGE: redis
+      HTTPTHEUS_REDIS_HOST: redis
+      HTTPTHEUS_ALLOWED_IPS: 0.0.0.0/0
+      HTTPTHEUS_DEMO: 'true'
+      HTTPTHEUS_DEMO_TARGET: http://httpbin:8080
+    ports:
+      # 8080 is contended on developer machines; the app only needs to be
+      # reachable from Prometheus, which uses the container port.
+      - '${HTTPTHEUS_PORT:-8088}:8080'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  traffic:
+    <<: *demo_app
+    command: ['vendor/bin/testbench', 'httptheus:demo-traffic', '--forever']
+    ports: []
+    depends_on:
+      redis:
+        condition: service_healthy
+      httpbin:
+        condition: service_started
+
+  prometheus:
+    profiles: [demo]
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - '9090:9090'
+
+  grafana:
+    profiles: [demo]
+    image: grafana/grafana:11.5.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Mounted straight from dashboards/, so the file Grafana loads is the file
+      # the package ships and the file DashboardJsonTest checks.
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - '3000:3000'
+    depends_on:
+      - prometheus
+
+volumes:
+  composer-cache:

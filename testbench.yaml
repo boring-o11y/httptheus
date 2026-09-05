@@ -1,0 +1,6 @@
+providers:
+  - BoringO11y\Httptheus\HttptheusServiceProvider
+
+env:
+  - APP_KEY="base64:ao/ax+/7ZNbHO0tlbZa3N1vdzfRGQSD35WkBPA0caLI="
+  - APP_ENV=local

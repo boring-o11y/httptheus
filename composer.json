@@ -1,0 +1,74 @@
+{
+    "name": "boring-o11y/httptheus",
+    "description": "Prometheus metrics for your application's outbound HTTP traffic. Instruments Laravel's HTTP client and raw Guzzle handler stacks, and ships a Grafana dashboard.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "http",
+        "guzzle",
+        "prometheus",
+        "grafana",
+        "metrics",
+        "observability"
+    ],
+    "homepage": "https://github.com/boring-o11y/httptheus",
+    "authors": [
+        {
+            "name": "Boring Observability",
+            "email": "tech@boring-observability.dev",
+            "homepage": "https://github.com/boring-o11y"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/boring-o11y/httptheus/issues",
+        "source": "https://github.com/boring-o11y/httptheus"
+    },
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "guzzlehttp/guzzle": "^7.0 || ^8.0",
+        "illuminate/console": "^12.0 || ^13.0",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/http": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
+        "promphp/prometheus_client_php": "^2.7",
+        "psr/http-message": "^1.0 || ^2.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.0 || ^12.0"
+    },
+    "suggest": {
+        "spatie/laravel-prometheus": "Its CollectorRegistry is adopted automatically, so httptheus metrics are exported from its /prometheus route with no configuration. Requires PHP 8.4.",
+        "ext-apcu": "Per-host metric storage that survives between PHP-FPM requests. Required for anything other than Octane or a single long-lived worker.",
+        "ext-redis": "Cross-process, cross-host metric storage. Required if you instrument queue workers."
+    },
+    "autoload": {
+        "psr-4": {
+            "BoringO11y\\Httptheus\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BoringO11y\\Httptheus\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "BoringO11y\\Httptheus\\HttptheusServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "analyse": "phpstan analyse",
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

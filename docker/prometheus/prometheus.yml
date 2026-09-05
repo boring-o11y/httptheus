@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Exactly one target. The demo app stores its metrics in Redis, and every
+  # instance sharing that Redis reports the same totals — scraping two would
+  # double every counter. See the storage section of the README.
+  - job_name: httptheus-demo
+    metrics_path: /httptheus/metrics
+    static_configs:
+      - targets: ['app:8080']
+        labels:
+          instance: demo-app

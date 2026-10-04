@@ -6,6 +6,7 @@ use BoringO11y\Httptheus\Metrics\RegistryFactory;
 use BoringO11y\Httptheus\Metrics\StorageFactory;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
+use Predis\Client;
 use Prometheus\CollectorRegistry;
 use Prometheus\Storage\APC;
 use Prometheus\Storage\InMemory;
@@ -58,7 +59,7 @@ class StorageFactoryTest extends TestCase
     #[Test]
     public function it_builds_the_predis_adapter_without_a_php_extension(): void
     {
-        if (! class_exists(\Predis\Client::class)) {
+        if (! class_exists(Client::class)) {
             $this->markTestSkipped('predis/predis is not installed.');
         }
 

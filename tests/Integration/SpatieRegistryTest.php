@@ -3,9 +3,12 @@
 namespace BoringO11y\Httptheus\Tests\Integration;
 
 use BoringO11y\Httptheus\HttptheusServiceProvider;
+use BoringO11y\Httptheus\Metrics\RegistryFactory;
 use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Prometheus\CollectorRegistry;
+use Spatie\Prometheus\PrometheusServiceProvider;
 
 /**
  * The headline claim, checked against the real package rather than a reading of
@@ -20,7 +23,7 @@ class SpatieRegistryTest extends TestCase
 {
     protected function setUp(): void
     {
-        if (! class_exists(\Spatie\Prometheus\PrometheusServiceProvider::class)) {
+        if (! class_exists(PrometheusServiceProvider::class)) {
             $this->markTestSkipped('spatie/laravel-prometheus is not installed.');
         }
 
@@ -30,7 +33,7 @@ class SpatieRegistryTest extends TestCase
     protected function getPackageProviders($app): array
     {
         return [
-            \Spatie\Prometheus\PrometheusServiceProvider::class,
+            PrometheusServiceProvider::class,
             HttptheusServiceProvider::class,
         ];
     }
@@ -57,12 +60,12 @@ class SpatieRegistryTest extends TestCase
     public function it_adopts_spaties_registry_rather_than_building_its_own(): void
     {
         $this->assertTrue(
-            $this->app->make(\BoringO11y\Httptheus\Metrics\RegistryFactory::class)->isAdopted()
+            $this->app->make(RegistryFactory::class)->isAdopted()
         );
 
         $this->assertSame(
-            $this->app->make(\Prometheus\CollectorRegistry::class),
-            $this->app->make(\BoringO11y\Httptheus\Metrics\RegistryFactory::class)->registry(),
+            $this->app->make(CollectorRegistry::class),
+            $this->app->make(RegistryFactory::class)->registry(),
         );
     }
 }

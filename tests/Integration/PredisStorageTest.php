@@ -7,6 +7,7 @@ use BoringO11y\Httptheus\Metrics\StorageFactory;
 use Illuminate\Support\Facades\Http;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Predis\Client;
 use Prometheus\CollectorRegistry;
 use Prometheus\RenderTextFormat;
 
@@ -23,7 +24,7 @@ class PredisStorageTest extends TestCase
 
     protected function setUp(): void
     {
-        if (! class_exists(\Predis\Client::class)) {
+        if (! class_exists(Client::class)) {
             $this->markTestSkipped('predis/predis is not installed.');
         }
 

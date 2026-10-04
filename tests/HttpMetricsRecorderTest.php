@@ -3,8 +3,8 @@
 namespace BoringO11y\Httptheus\Tests;
 
 use BoringO11y\Httptheus\Metrics\MetricSet;
-use BoringO11y\Httptheus\Recording\LabelResolver;
 use BoringO11y\Httptheus\Recording\HttpMetricsRecorder;
+use BoringO11y\Httptheus\Recording\LabelResolver;
 use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use GuzzleHttp\TransferStats;

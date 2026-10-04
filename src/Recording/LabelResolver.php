@@ -6,7 +6,6 @@ use BoringO11y\Httptheus\Httptheus;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\UriInterface;
 
 class LabelResolver
 {

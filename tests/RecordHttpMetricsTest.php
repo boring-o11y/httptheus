@@ -7,6 +7,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use GuzzleHttp\TransferStats;
@@ -141,6 +142,6 @@ class RecordHttpMetricsTest extends TestCase
      */
     private function handlerIgnoringStats(GuzzleResponse $response): callable
     {
-        return fn ($request, array $options) => \GuzzleHttp\Promise\Create::promiseFor($response);
+        return fn ($request, array $options) => Create::promiseFor($response);
     }
 }

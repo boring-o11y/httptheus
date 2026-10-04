@@ -57,7 +57,7 @@ class MetricSet
             $this->namespace(),
             Httptheus::METRIC_IN_FLIGHT,
             'Outbound HTTP requests currently in flight.',
-            ['host'],
+            $this->labels->inFlightNames(),
         );
     }
 

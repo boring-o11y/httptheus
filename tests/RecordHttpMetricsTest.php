@@ -4,6 +4,7 @@ namespace BoringO11y\Httptheus\Tests;
 
 use BoringO11y\Httptheus\Guzzle\RecordHttpMetrics;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -12,6 +13,9 @@ use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use GuzzleHttp\TransferStats;
 use PHPUnit\Framework\Attributes\Test;
+use Prometheus\CollectorRegistry;
+use Prometheus\Storage\InMemory;
+use RuntimeException;
 
 /**
  * Driven through a bare handler stack rather than Laravel's client: a mock
@@ -126,6 +130,89 @@ class RecordHttpMetricsTest extends TestCase
 
         // Back to zero, not absent: the gauge is decremented on the way out.
         $this->assertSample('httptheus_client_requests_in_flight{host="api.example.com"} 0');
+    }
+
+    #[Test]
+    public function the_fallback_keeps_the_status_of_an_http_error_raised_as_an_exception(): void
+    {
+        $stack = HandlerStack::create(fn ($request) => Create::rejectionFor(
+            new ClientException('Not Found', $request, new GuzzleResponse(404)),
+        ));
+        $stack->push($this->app->make(RecordHttpMetrics::class));
+
+        try {
+            (new Client(['handler' => $stack]))->get('https://api.example.com/v1/users');
+            $this->fail('The rejection should have propagated.');
+        } catch (ClientException) {
+            // A 404 reached the caller; it is not a transport failure.
+        }
+
+        $this->assertSample('status_class="4xx"} 1');
+        $this->assertNoSample('httptheus_client_request_errors_total');
+    }
+
+    #[Test]
+    public function a_handler_that_throws_before_returning_a_promise_still_leaves_flight(): void
+    {
+        $this->withConfig(['httptheus.metrics.in_flight' => true]);
+
+        $stack = HandlerStack::create(fn () => throw new RuntimeException('Stray request.'));
+        $stack->push($this->app->make(RecordHttpMetrics::class));
+
+        try {
+            (new Client(['handler' => $stack]))->get('https://api.example.com/v1/users');
+            $this->fail('The exception should have propagated.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Stray request.', $e->getMessage());
+        }
+
+        $this->assertSample('httptheus_client_requests_in_flight{host="api.example.com"} 0');
+        $this->assertSample('status_class="error"} 1');
+    }
+
+    #[Test]
+    public function a_fulfilled_value_that_is_not_a_response_passes_through_untouched(): void
+    {
+        $middleware = $this->app->make(RecordHttpMetrics::class);
+        $handler = $middleware(fn () => Create::promiseFor('not a response'));
+
+        $result = $handler(new GuzzleRequest('GET', 'https://api.example.com/v1/users'), [])->wait();
+
+        $this->assertSame('not a response', $result);
+    }
+
+    #[Test]
+    public function the_in_flight_gauge_follows_the_enabled_host_labels(): void
+    {
+        $this->withConfig([
+            'httptheus.metrics.in_flight' => true,
+            'httptheus.labels.host' => false,
+            'httptheus.labels.service' => true,
+            'httptheus.services' => ['example' => '*.example.com'],
+        ]);
+
+        $this->client(new MockHandler([new GuzzleResponse(200)]))
+            ->get('https://api.example.com/v1/users', ['transfer_time' => 0.1]);
+
+        $this->assertSample('httptheus_client_requests_in_flight{service="example"} 0');
+        $this->assertNoSample('host="api.example.com"');
+    }
+
+    #[Test]
+    public function a_long_lived_middleware_follows_the_registry_into_the_next_scope(): void
+    {
+        // The HTTP client factory holds this instance for the life of an Octane
+        // worker, so it must not hold the first request's registry with it.
+        $client = $this->client(new MockHandler([new GuzzleResponse(200), new GuzzleResponse(200)]));
+        $client->get('https://api.example.com/v1/users', ['transfer_time' => 0.1]);
+
+        $this->app->forgetScopedInstances();
+        $this->app->instance(CollectorRegistry::class, new CollectorRegistry($next = new InMemory, false));
+
+        $client->get('https://api.example.com/v1/users', ['transfer_time' => 0.1]);
+
+        $this->assertSample('status_class="2xx"} 1');
+        $this->assertNotSame([], $next->collect());
     }
 
     private function client(MockHandler $handler): Client

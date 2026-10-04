@@ -8,7 +8,6 @@ use Prometheus\Storage\APC;
 use Prometheus\Storage\APCng;
 use Prometheus\Storage\InMemory;
 use Prometheus\Storage\Predis;
-use Prometheus\Storage\Redis;
 
 class StorageFactory
 {
@@ -20,7 +19,7 @@ class StorageFactory
         return match ($driver) {
             'apcu' => new APC($prefix),
             'apcng' => new APCng($prefix),
-            'redis' => new Redis($this->redisOptions()),
+            'redis' => new PrefixedRedis($this->redisOptions(), $prefix . ':'),
             'predis' => new Predis($this->predisParameters(), ['prefix' => $prefix . ':']),
             'memory' => new InMemory,
             default => throw new InvalidArgumentException("Unknown httptheus storage driver [{$driver}]."),

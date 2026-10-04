@@ -61,8 +61,8 @@ return [
     | rate(httptheus_client_request_duration_seconds_count[5m]).
     |
     | `in_flight` is off because it increments on entry and decrements on exit.
-    | A fatal error between the two leaks a permanent +1 into shared storage,
-    | and under APCu or Redis nothing but `httptheus:wipe` will clear it.
+    | A fatal error between the two leaks a permanent +1 into shared storage.
+    | Under Redis only `httptheus:wipe` clears it; under APCu, a PHP-FPM reload.
     |
     */
 

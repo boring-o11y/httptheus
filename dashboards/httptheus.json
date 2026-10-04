@@ -1820,7 +1820,7 @@
           "id": 21,
           "type": "timeseries",
           "title": "Requests in flight",
-          "description": "Off by default (httptheus.metrics.in_flight). The gauge increments on entry and decrements on exit, so a fatal error between the two leaks a permanent +1 that only `php artisan httptheus:wipe` will clear.",
+          "description": "Off by default (httptheus.metrics.in_flight). The gauge increments on entry and decrements on exit, so a fatal error between the two leaks a permanent +1 that only `php artisan httptheus:wipe` (Redis) or a PHP-FPM reload (APCu) will clear.",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"

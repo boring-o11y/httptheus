@@ -15,8 +15,12 @@ class HttpMetricsRecorder
         private readonly LabelResolver $labels,
     ) {}
 
-    public function recordStats(TransferStats $stats): void
+    public function recordStats(TransferStats $stats, ?TransferState $state = null): void
     {
+        if ($state !== null) {
+            $state->recorded = true;
+        }
+
         try {
             $response = $stats->getResponse();
 
@@ -24,10 +28,10 @@ class HttpMetricsRecorder
                 $stats->getRequest(),
                 $response,
                 // Http::fake() synthesises transfer stats with a null transfer
-                // time. Record the call rather than fabricating a duration: a
-                // zero is visibly wrong on a dashboard, a TypeError here would
-                // be swallowed below and lose the observation entirely.
-                (float) ($stats->getTransferTime() ?? 0.0),
+                // time. The wall clock since the middleware was entered is the
+                // nearest real duration; a zero would quietly drag every
+                // quantile toward the lowest bucket.
+                (float) ($stats->getTransferTime() ?? $state?->elapsed() ?? 0.0),
                 $response === null,
                 $stats->getHandlerErrorData(),
             );
@@ -72,7 +76,7 @@ class HttpMetricsRecorder
             }
 
             $state->inFlight = true;
-            $this->metrics->inFlight()->inc([$host]);
+            $this->metrics->inFlight()->inc($this->labels->inFlightValues($host));
         } catch (Throwable $e) {
             $this->report($e);
         }
@@ -86,7 +90,7 @@ class HttpMetricsRecorder
 
         try {
             $state->inFlight = false;
-            $this->metrics->inFlight()->dec([$request->getUri()->getHost()]);
+            $this->metrics->inFlight()->dec($this->labels->inFlightValues($request->getUri()->getHost()));
         } catch (Throwable $e) {
             $this->report($e);
         }

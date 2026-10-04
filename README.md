@@ -88,7 +88,8 @@ If you would rather not think about it, `'labels' => ['endpoint' => false]` drop
 entirely.
 
 The damage is durable if you get it wrong: the Prometheus client never expires a label
-combination, so bad series survive in APCu or Redis until `php artisan httptheus:wipe`. The
+combination, so bad series survive in Redis until `php artisan httptheus:wipe`, and in APCu
+until PHP-FPM is reloaded (the CLI cannot reach FPM's shared memory, so the command refuses). The
 dashboard's Diagnostics row has a **Distinct endpoint labels** panel so you find out before
 Prometheus does.
 
@@ -112,7 +113,8 @@ The default is `auto`: APCu when the extension is loaded and enabled, otherwise
 
 **`memory` under PHP-FPM returns an empty scrape every time** — the request that served it
 never saw the increments. If `/httptheus/metrics` is blank, this is why. `php artisan about`
-reports the driver actually in use.
+reports the configured driver. `auto` is resolved separately in every process, and the CLI
+often has APCu disabled when FPM does not, so set the driver explicitly if you need to be sure.
 
 With `redis` or `predis`, every application instance reports the **same** totals. Scrape
 exactly one target, or you will count all of your traffic N times over.

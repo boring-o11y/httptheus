@@ -69,6 +69,29 @@ class LabelResolver
     }
 
     /**
+     * The in-flight gauge's labels: whichever of the histogram's host-level
+     * labels are enabled. A gauge per raw hostname would bring back exactly the
+     * cardinality that turning `host` off was meant to remove.
+     *
+     * @return list<string>
+     */
+    public function inFlightNames(): array
+    {
+        return array_values(array_intersect($this->names(), ['host', 'service']));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function inFlightValues(string $host): array
+    {
+        return array_map(
+            fn (string $name) => $name === 'host' ? $host : $this->service($host),
+            $this->inFlightNames(),
+        );
+    }
+
+    /**
      * @return list<string>
      */
     public function values(RequestInterface $request, ?int $status, bool $failed): array

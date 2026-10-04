@@ -7,7 +7,10 @@ use BoringO11y\Httptheus\Recording\TransferState;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\TransferStats;
+use Illuminate\Container\Container;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Throwable;
 
 /**
  * The one recording seam.
@@ -32,8 +35,6 @@ class RecordHttpMetrics
      */
     private const MARKER = 'httptheus_instrumented';
 
-    public function __construct(private readonly HttpMetricsRecorder $recorder) {}
-
     public function __invoke(callable $handler): callable
     {
         return function (RequestInterface $request, array $options) use ($handler): PromiseInterface {
@@ -46,6 +47,13 @@ class RecordHttpMetrics
 
             $options[self::MARKER] = true;
 
+            // Resolved per transfer from the current container, never held:
+            // this object ends up in the HTTP client factory's global
+            // middleware and on application handler stacks, both of which
+            // outlive an Octane request, while the recorder is scoped to one so
+            // that it follows a registry torn down between requests.
+            $recorder = Container::getInstance()->make(HttpMetricsRecorder::class);
+
             $state = new TransferState;
             $previous = $options['on_stats'] ?? null;
 
@@ -54,27 +62,48 @@ class RecordHttpMetrics
             // populates Response::handlerStats() for the caller. It runs first,
             // so the application's own behaviour cannot be delayed or displaced
             // by ours.
-            $options['on_stats'] = function (TransferStats $stats) use ($previous, $state): void {
+            $options['on_stats'] = function (TransferStats $stats) use ($previous, $state, $recorder): void {
                 if (is_callable($previous)) {
                     $previous($stats);
                 }
 
-                $state->recorded = true;
-                $this->recorder->recordStats($stats);
+                $recorder->recordStats($stats, $state);
             };
 
-            $this->recorder->enterFlight($state, $request);
+            $recorder->enterFlight($state, $request);
 
-            return $handler($request, $options)->then(
-                function ($response) use ($request, $state) {
-                    $this->recorder->leaveFlight($state, $request);
-                    $this->recorder->recordFallback($state, $request, $response, null);
+            try {
+                $promise = $handler($request, $options);
+            } catch (Throwable $e) {
+                // A handler may throw before it returns a promise — Laravel's
+                // stray-request guard and beforeSending callbacks both do — and
+                // the gauge was already incremented above.
+                $recorder->leaveFlight($state, $request);
+                $recorder->recordFallback($state, $request, null, $e);
+
+                throw $e;
+            }
+
+            return $promise->then(
+                function ($response) use ($request, $state, $recorder) {
+                    $recorder->leaveFlight($state, $request);
+                    $recorder->recordFallback(
+                        $state,
+                        $request,
+                        $response instanceof ResponseInterface ? $response : null,
+                        null,
+                    );
 
                     return $response;
                 },
-                function ($reason) use ($request, $state) {
-                    $this->recorder->leaveFlight($state, $request);
-                    $this->recorder->recordFallback($state, $request, null, $reason);
+                function ($reason) use ($request, $state, $recorder) {
+                    $recorder->leaveFlight($state, $request);
+                    $recorder->recordFallback(
+                        $state,
+                        $request,
+                        self::responseOf($reason),
+                        $reason,
+                    );
 
                     // Rejections propagate untouched. Observing a failure must
                     // not change what the caller sees of it.
@@ -82,5 +111,17 @@ class RecordHttpMetrics
                 },
             );
         };
+    }
+
+    /**
+     * An HTTP error status raised as an exception still came with a response,
+     * and is not a transport failure. Guzzle 7 exposes it on RequestException
+     * and 8 on ResponseException, so ask the object rather than its class.
+     */
+    private static function responseOf(mixed $reason): ?ResponseInterface
+    {
+        $response = is_object($reason) && method_exists($reason, 'getResponse') ? $reason->getResponse() : null;
+
+        return $response instanceof ResponseInterface ? $response : null;
     }
 }

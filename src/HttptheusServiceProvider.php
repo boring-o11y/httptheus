@@ -23,6 +23,9 @@ class HttptheusServiceProvider extends ServiceProvider
 
         $this->app->singleton(StorageFactory::class);
         $this->app->singleton(LabelResolver::class);
+        // Stateless: it resolves the scoped recorder per transfer, because it
+        // is captured by the HTTP client factory and outlives any one request.
+        $this->app->singleton(RecordHttpMetrics::class);
 
         // Scoped rather than singleton: an adopted registry (spatie binds its
         // own as scoped) is torn down between Octane requests, and holding on
@@ -30,7 +33,6 @@ class HttptheusServiceProvider extends ServiceProvider
         $this->app->scoped(RegistryFactory::class);
         $this->app->scoped(Metrics\MetricSet::class);
         $this->app->scoped(HttpMetricsRecorder::class);
-        $this->app->scoped(RecordHttpMetrics::class);
     }
 
     public function boot(): void
@@ -116,10 +118,24 @@ class HttptheusServiceProvider extends ServiceProvider
         AboutCommand::add('Httptheus', fn () => [
             'Storage' => fn () => $this->app->make(RegistryFactory::class)->isAdopted()
                 ? 'adopted registry'
-                : $this->app->make(StorageFactory::class)->driver(),
+                : $this->describeStorage(),
             'Scrape route' => fn () => config('httptheus.route.enabled')
                 ? Str::start((string) config('httptheus.route.path'), '/')
                 : 'disabled',
         ]);
+    }
+
+    /**
+     * `auto` resolves per process, and this runs in the CLI, which often has
+     * APCu disabled while PHP-FPM has it on. Reporting the CLI's resolution as
+     * fact would point anyone debugging an empty scrape the wrong way.
+     */
+    private function describeStorage(): string
+    {
+        $driver = $this->app->make(StorageFactory::class)->driver();
+
+        return config('httptheus.storage.driver', 'auto') === 'auto'
+            ? "auto ({$driver} in this process; web workers resolve it separately)"
+            : $driver;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace BoringO11y\Httptheus\Tests;
 
+use BoringO11y\Httptheus\Metrics\PrefixedRedis;
 use BoringO11y\Httptheus\Metrics\RegistryFactory;
 use BoringO11y\Httptheus\Metrics\StorageFactory;
 use InvalidArgumentException;
@@ -142,5 +143,22 @@ class StorageFactoryTest extends TestCase
         $options = (new \ReflectionMethod($this->factory, 'redisOptions'))->invoke($this->factory);
 
         $this->assertSame(['host' => 'redis', 'port' => 6379], $options);
+    }
+
+    #[Test]
+    public function the_redis_driver_keeps_its_keys_under_the_storage_prefix(): void
+    {
+        if (! extension_loaded('redis')) {
+            $this->markTestSkipped('ext-redis is not installed.');
+        }
+
+        config(['httptheus.storage.driver' => 'redis', 'httptheus.storage.prefix' => 'app_one']);
+
+        $adapter = $this->factory->make();
+
+        // Constructing it does not connect, so this runs without a Redis. The
+        // prefix is what keeps two apps on one Redis, and wipe, apart.
+        $this->assertInstanceOf(PrefixedRedis::class, $adapter);
+        $this->assertSame('app_one:', (fn () => $this->redis->getPrefix())->call($adapter));
     }
 }

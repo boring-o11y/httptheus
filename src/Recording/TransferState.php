@@ -12,7 +12,7 @@ class TransferState
 
     public bool $inFlight = false;
 
-    public readonly float $startedAt;
+    private readonly float $startedAt;
 
     public function __construct()
     {

@@ -43,7 +43,7 @@ class Httptheus
      */
     public static function check(Request $request): bool
     {
-        return (static::$authUsing ?: fn () => app()->environment('local'))($request);
+        return (static::$authUsing ?: fn () => app()->isLocal())($request);
     }
 
     /**

@@ -65,21 +65,6 @@ class RecordHttpMetrics
 
             $this->recorder->enterFlight($state, $request);
 
-            if (! config('httptheus.instrument.promise_fallback')) {
-                return $handler($request, $options)->then(
-                    function ($response) use ($state, $request) {
-                        $this->recorder->leaveFlight($state, $request);
-
-                        return $response;
-                    },
-                    function ($reason) use ($state, $request) {
-                        $this->recorder->leaveFlight($state, $request);
-
-                        return Create::rejectionFor($reason);
-                    },
-                );
-            }
-
             return $handler($request, $options)->then(
                 function ($response) use ($request, $state) {
                     $this->recorder->leaveFlight($state, $request);

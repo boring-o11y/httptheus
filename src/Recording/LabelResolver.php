@@ -44,14 +44,10 @@ class LabelResolver
     {
         $names = [];
 
-        foreach (['host', 'service', 'method', 'endpoint'] as $label) {
+        foreach (['host', 'service', 'method', 'endpoint', 'status_class'] as $label) {
             if (config("httptheus.labels.{$label}")) {
                 $names[] = $label;
             }
-        }
-
-        if (config('httptheus.labels.status_class')) {
-            $names[] = 'status_class';
         }
 
         return $names;
@@ -189,8 +185,10 @@ class LabelResolver
         $segments = explode('/', $path);
         $dropped = count($segments) > $maxSegments;
 
+        $maxSegmentLength = (int) config('httptheus.endpoints.max_segment_length', 40);
+
         $segments = array_map(
-            fn (string $segment) => $this->normalizeSegment($segment),
+            fn (string $segment) => $this->normalizeSegment($segment, $maxSegmentLength),
             array_slice($segments, 0, $maxSegments),
         );
 
@@ -201,14 +199,14 @@ class LabelResolver
         return $this->applyPatterns($normalized);
     }
 
-    private function normalizeSegment(string $segment): string
+    private function normalizeSegment(string $segment, int $maxLength): string
     {
         if ($segment === '') {
             return $segment;
         }
 
         $identifierShaped = preg_match('/^\d+$/', $segment)
-            || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $segment)
+            || Str::isUuid($segment)
             || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $segment)
             || preg_match('/^[0-9a-f]{32}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$/i', $segment);
 
@@ -218,9 +216,7 @@ class LabelResolver
 
         // A segment nobody would name by hand is an identifier we did not
         // recognise — a signed token, a base64 blob, an encoded filename.
-        return strlen($segment) > (int) config('httptheus.endpoints.max_segment_length', 40)
-            ? ':id'
-            : $segment;
+        return strlen($segment) > $maxLength ? ':id' : $segment;
     }
 
     /**
@@ -243,8 +239,6 @@ class LabelResolver
 
     private function truncate(string $value): string
     {
-        $max = (int) config('httptheus.endpoints.max_length', 120);
-
-        return strlen($value) <= $max ? $value : substr($value, 0, $max);
+        return substr($value, 0, (int) config('httptheus.endpoints.max_length', 120));
     }
 }

@@ -45,7 +45,7 @@ class HttpMetricsRecorder
         ?ResponseInterface $response,
         mixed $reason,
     ): void {
-        if ($state->recorded) {
+        if ($state->recorded || ! config('httptheus.instrument.promise_fallback')) {
             return;
         }
 

@@ -13,6 +13,7 @@ use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class HttptheusServiceProvider extends ServiceProvider
 {
@@ -117,7 +118,7 @@ class HttptheusServiceProvider extends ServiceProvider
                 ? 'adopted registry'
                 : $this->app->make(StorageFactory::class)->driver(),
             'Scrape route' => fn () => config('httptheus.route.enabled')
-                ? '/' . ltrim((string) config('httptheus.route.path'), '/')
+                ? Str::start((string) config('httptheus.route.path'), '/')
                 : 'disabled',
         ]);
     }

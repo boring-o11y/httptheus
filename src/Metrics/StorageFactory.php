@@ -54,10 +54,7 @@ class StorageFactory
         // Nulls are dropped rather than passed through: the client merges what
         // it is given over its own defaults, so an unset password arriving as
         // null would overwrite a password set with Redis::setDefaultOptions().
-        return array_filter(
-            (array) config('httptheus.storage.redis', []),
-            fn ($value) => $value !== null && $value !== '',
-        );
+        return $this->withoutBlanks((array) config('httptheus.storage.redis', []));
     }
 
     /**
@@ -70,7 +67,7 @@ class StorageFactory
     {
         $redis = (array) config('httptheus.storage.redis', []);
 
-        return array_filter([
+        return $this->withoutBlanks([
             'scheme' => 'tcp',
             'host' => $redis['host'] ?? null,
             'port' => $redis['port'] ?? null,
@@ -78,7 +75,16 @@ class StorageFactory
             'timeout' => $redis['timeout'] ?? null,
             'read_write_timeout' => isset($redis['read_timeout']) ? (float) $redis['read_timeout'] : null,
             'persistent' => $redis['persistent_connections'] ?? null,
-        ], fn ($value) => $value !== null && $value !== '');
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function withoutBlanks(array $values): array
+    {
+        return array_filter($values, fn ($value) => $value !== null && $value !== '');
     }
 
     private function apcuAvailable(): bool

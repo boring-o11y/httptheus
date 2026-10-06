@@ -211,7 +211,7 @@ documents every key. The ones worth knowing before you need them:
 
 ## Requirements
 
-PHP 8.2+, Laravel 12 or 13, Guzzle 7 or 8. For anything but Octane you also want a
+PHP 8.4+, Laravel 12 or 13, Guzzle 7 or 8. For anything but Octane you also want a
 storage backend that outlives the request: `ext-apcu`, `ext-redis`, or `predis/predis`.
 
 ## Testing

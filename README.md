@@ -214,6 +214,10 @@ documents every key. The ones worth knowing before you need them:
 PHP 8.4+, Laravel 12 or 13, Guzzle 7 or 8. For anything but Octane you also want a
 storage backend that outlives the request: `ext-apcu`, `ext-redis`, or `predis/predis`.
 
+## Background
+
+[Instrumenting Guzzle in Laravel](https://boring-observability.dev/blog/instrumenting-guzzle-laravel) covers which SDKs send their requests through Guzzle and where httptheus fits.
+
 ## Testing
 
 ```

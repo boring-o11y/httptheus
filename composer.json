@@ -12,7 +12,7 @@
         "metrics",
         "observability"
     ],
-    "homepage": "https://github.com/boring-o11y/httptheus",
+    "homepage": "https://boring-observability.dev/open-source/httptheus",
     "authors": [
         {
             "name": "Boring Observability",
